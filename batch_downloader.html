@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量媒体文件下载工具</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        .input-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .url-input {
+            width: 100%;
+            min-height: 120px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 14px;
+            resize: vertical;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            background: white;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #6c757d;
+            border: 2px solid #e9ecef;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .progress-section {
+            margin-bottom: 30px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .log-section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+        }
+
+        .log-item {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .log-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .log-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .log-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .status-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .icon-success { background: #28a745; }
+        .icon-error { background: #dc3545; }
+        .icon-info { background: #17a2b8; }
+
+        .hidden {
+            display: none;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 批量媒体下载工具</h1>
+        
+        <div class="input-section">
+            <label for="urlInput">粘贴链接（每行一个）：</label>
+            <textarea 
+                id="urlInput" 
+                class="url-input" 
+                placeholder="请粘贴视频或图片链接，支持：&#10;• 小红书视频链接&#10;• 小红书图片链接&#10;• 其他直链媒体文件&#10;&#10;多个链接请换行分隔"
+            ></textarea>
+        </div>
+
+        <div class="button-group">
+            <button id="downloadBtn" class="btn btn-primary">
+                📥 开始下载
+            </button>
+            <button id="clearBtn" class="btn btn-secondary">
+                🗑️ 清空日志
+            </button>
+        </div>
+
+        <div id="progressSection" class="progress-section hidden">
+            <div class="stats">
+                <div class="stat-card">
+                    <div id="totalCount" class="stat-number">0</div>
+                    <div class="stat-label">总数</div>
+                </div>
+                <div class="stat-card">
+                    <div id="successCount" class="stat-number">0</div>
+                    <div class="stat-label">成功</div>
+                </div>
+                <div class="stat-card">
+                    <div id="errorCount" class="stat-number">0</div>
+                    <div class="stat-label">失败</div>
+                </div>
+                <div class="stat-card">
+                    <div id="currentProgress" class="stat-number">0%</div>
+                    <div class="stat-label">进度</div>
+                </div>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+            <div id="progressText" class="progress-text">准备开始...</div>
+        </div>
+
+        <div class="log-section">
+            <div id="logContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        class BatchDownloader {
+            constructor() {
+                this.downloadBtn = document.getElementById('downloadBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.urlInput = document.getElementById('urlInput');
+                this.progressSection = document.getElementById('progressSection');
+                this.progressFill = document.getElementById('progressFill');
+                this.progressText = document.getElementById('progressText');
+                this.logContainer = document.getElementById('logContainer');
+                
+                this.totalCount = document.getElementById('totalCount');
+                this.successCount = document.getElementById('successCount');
+                this.errorCount = document.getElementById('errorCount');
+                this.currentProgress = document.getElementById('currentProgress');
+                
+                this.isDownloading = false;
+                this.stats = { total: 0, success: 0, error: 0 };
+                
+                this.initEvents();
+            }
+
+            initEvents() {
+                this.downloadBtn.addEventListener('click', () => this.startDownload());
+                this.clearBtn.addEventListener('click', () => this.clearLog());
+            }
+
+            log(message, type = 'info') {
+                const logItem = document.createElement('div');
+                logItem.className = `log-item log-${type} fade-in`;
+                
+                const icon = document.createElement('span');
+                icon.className = `status-icon icon-${type}`;
+                
+                const text = document.createElement('span');
+                text.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                
+                logItem.appendChild(icon);
+                logItem.appendChild(text);
+                
+                this.logContainer.appendChild(logItem);
+                this.logContainer.scrollTop = this.logContainer.scrollHeight;
+            }
+
+            clearLog() {
+                this.logContainer.innerHTML = '';
+                this.progressSection.classList.add('hidden');
+                this.stats = { total: 0, success: 0, error: 0 };
+                this.updateStats();
+            }
+
+            updateStats() {
+                this.totalCount.textContent = this.stats.total;
+                this.successCount.textContent = this.stats.success;
+                this.errorCount.textContent = this.stats.error;
+                
+                const progress = this.stats.total > 0 ? 
+                    Math.round(((this.stats.success + this.stats.error) / this.stats.total) * 100) : 0;
+                this.currentProgress.textContent = `${progress}%`;
+                
+                this.progressFill.style.width = `${progress}%`;
+                this.progressText.textContent = 
+                    `已处理 ${this.stats.success + this.stats.error} / ${this.stats.total} 个文件`;
+            }
+
+            async startDownload() {
+                if (this.isDownloading) return;
+                
+                const urls = this.urlInput.value.trim().split('\n')
+                    .map(url => url.trim())
+                    .filter(url => url.length > 0);
+                
+                if (urls.length === 0) {
+                    this.log('请输入至少一个链接', 'error');
+                    return;
+                }
+
+                this.isDownloading = true;
+                this.downloadBtn.disabled = true;
+                this.downloadBtn.textContent = '⏳ 下载中...';
+                
+                this.progressSection.classList.remove('hidden');
+                this.stats = { total: urls.length, success: 0, error: 0 };
+                this.updateStats();
+                
+                this.log(`开始处理 ${urls.length} 个链接`, 'info');
+                
+                const zip = new JSZip();
+                const downloadPromises = urls.map(url => this.downloadFile(url, zip));
+                
+                await Promise.all(downloadPromises);
+                
+                if (this.stats.success > 0) {
+                    if (this.stats.success === 1 && urls.length === 1) {
+                        // 单个文件直接下载
+                        this.log('单个文件下载完成', 'success');
+                    } else {
+                        // 多个文件打包下载
+                        this.log('正在生成压缩包...', 'info');
+                        const content = await zip.generateAsync({ type: 'blob' });
+                        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                        this.saveFile(content, `媒体文件_${timestamp}.zip`);
+                        this.log(`压缩包生成完成，包含 ${this.stats.success} 个文件`, 'success');
+                    }
+                } else {
+                    this.log('没有文件下载成功', 'error');
+                }
+                
+                this.isDownloading = false;
+                this.downloadBtn.disabled = false;
+                this.downloadBtn.textContent = '📥 开始下载';
+            }
+
+            async downloadFile(url, zip) {
+                try {
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const blob = await response.blob();
+                    const filename = this.getFilename(url, response.headers.get('content-type'));
+                    
+                    if (this.stats.total === 1) {
+                        // 单个文件直接下载
+                        this.saveFile(blob, filename);
+                    } else {
+                        // 多个文件添加到压缩包
+                        zip.file(filename, blob);
+                    }
+                    
+                    this.stats.success++;
+                    this.log(`✅ ${filename} 下载成功`, 'success');
+                    
+                } catch (error) {
+                    this.stats.error++;
+                    this.log(`❌ ${url} 下载失败: ${error.message}`, 'error');
+                } finally {
+                    this.updateStats();
+                }
+            }
+
+            getFilename(url, contentType) {
+                // 从URL中提取文件名
+                const urlPath = new URL(url).pathname;
+                let filename = urlPath.split('/').pop();
+                
+                // 如果没有扩展名，根据content-type添加
+                if (!filename.includes('.')) {
+                    if (contentType) {
+                        if (contentType.includes('video')) {
+                            filename += '.mp4';
+                        } else if (contentType.includes('image')) {
+                            filename += '.jpg';
+                        } else {
+                            filename += '.file';
+                        }
+                    } else {
+                        // 根据URL特征判断
+                        if (url.includes('video') || url.includes('.mp4')) {
+                            filename += '.mp4';
+                        } else if (url.includes('image') || url.includes('.jpg') || url.includes('.png')) {
+                            filename += '.jpg';
+                        } else {
+                            filename += '.file';
+                        }
+                    }
+                }
+                
+                // 处理可能的特殊字符
+                filename = filename.replace(/[<>:"/\\|?*]/g, '_');
+                
+                // 如果文件名为空，生成默认名称
+                if (!filename || filename === '.file') {
+                    const timestamp = Date.now();
+                    filename = `文件_${timestamp}.file`;
+                }
+                
+                return filename;
+            }
+
+            saveFile(blob, filename) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new BatchDownloader();
+        });
+    </script>
+</body>
+</html>
